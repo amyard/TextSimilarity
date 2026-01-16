@@ -61,6 +61,9 @@ for (int i = 0; i < fileNames.Length; i++)
         var jaccard = TextSimilarity.JaccardSimilarity(text1, text2);
         Console.WriteLine($"  Jaccard Similarity:       {jaccard:P2}");
 
+        var embeddingSim = TextSimilarity.EmbeddingSimilarity(text1, text2, documents.Values.ToList());
+        Console.WriteLine($"  Embedding Similarity:     {embeddingSim:P2}");
+
         Console.WriteLine();
     }
 }
@@ -191,6 +194,65 @@ public static class TextSimilarity
         var union = words1.Union(words2).Count();
 
         return union == 0 ? 0 : (double)intersection / union;
+    }
+
+    /// <summary>
+    /// Calculates similarity using TF-IDF embeddings.
+    /// Returns a value between 0 (completely different) and 1 (identical).
+    /// </summary>
+    public static double EmbeddingSimilarity(string text1, string text2, List<string> corpus)
+    {
+        var words1 = GetWords(text1);
+        var words2 = GetWords(text2);
+        
+        // Calculate TF-IDF vectors
+        var tfidf1 = CalculateTfIdf(words1, corpus);
+        var tfidf2 = CalculateTfIdf(words2, corpus);
+        
+        // Calculate cosine similarity between TF-IDF vectors
+        var allTerms = tfidf1.Keys.Union(tfidf2.Keys).ToList();
+        
+        double dotProduct = 0;
+        double magnitude1 = 0;
+        double magnitude2 = 0;
+        
+        foreach (var term in allTerms)
+        {
+            var value1 = tfidf1.GetValueOrDefault(term, 0.0);
+            var value2 = tfidf2.GetValueOrDefault(term, 0.0);
+            
+            dotProduct += value1 * value2;
+            magnitude1 += value1 * value1;
+            magnitude2 += value2 * value2;
+        }
+        
+        if (magnitude1 == 0 || magnitude2 == 0)
+            return 0;
+        
+        return dotProduct / (Math.Sqrt(magnitude1) * Math.Sqrt(magnitude2));
+    }
+    
+    private static Dictionary<string, double> CalculateTfIdf(Dictionary<string, int> wordCounts, List<string> corpus)
+    {
+        var tfidf = new Dictionary<string, double>();
+        var totalWords = wordCounts.Values.Sum();
+        
+        foreach (var (word, count) in wordCounts)
+        {
+            // Term Frequency (TF)
+            var tf = (double)count / totalWords;
+            
+            // Inverse Document Frequency (IDF)
+            var documentsContainingWord = corpus.Count(doc => 
+                Regex.IsMatch(doc.ToLowerInvariant(), $@"\b{Regex.Escape(word)}\b"));
+            
+            var idf = Math.Log((double)corpus.Count / (1 + documentsContainingWord));
+            
+            // TF-IDF
+            tfidf[word] = tf * idf;
+        }
+        
+        return tfidf;
     }
 
     private static Dictionary<string, int> GetWords(string text)
