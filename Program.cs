@@ -29,7 +29,7 @@ foreach (var pdfFile in pdfFiles)
     var fileName = Path.GetFileName(pdfFile);
     var text = DocumentTextExtractor.ExtractText(pdfFile);
     documents[fileName] = text;
-    Console.WriteLine($"Extracted {text.Length} characters from {fileName}");
+    Console.WriteLine($"Extracted {text.Length} characters from first page of {fileName}");
 }
 Console.WriteLine();
 
@@ -74,17 +74,16 @@ public static class DocumentTextExtractor
             using var pdfReader = new PdfReader(pdfPath);
             using var pdfDocument = new PdfDocument(pdfReader);
             
-            var text = new System.Text.StringBuilder();
-            
-            for (int i = 1; i <= pdfDocument.GetNumberOfPages(); i++)
+            // Extract only the first page
+            if (pdfDocument.GetNumberOfPages() > 0)
             {
-                var page = pdfDocument.GetPage(i);
+                var page = pdfDocument.GetPage(1);
                 var strategy = new SimpleTextExtractionStrategy();
                 var pageText = PdfTextExtractor.GetTextFromPage(page, strategy);
-                text.AppendLine(pageText);
+                return pageText;
             }
             
-            return text.ToString();
+            return string.Empty;
         }
         catch (Exception ex)
         {
