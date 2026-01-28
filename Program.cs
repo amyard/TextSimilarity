@@ -46,20 +46,20 @@ for (int i = 0; i < fileNames.Length; i++)
         var text1 = documents[doc1];
         var text2 = documents[doc2];
 
-        Console.WriteLine($"Comparing: '{doc1}' vs '{doc2}'");
-        Console.WriteLine(new string('-', 60));
-
-        var cosineSim = TextSimilarity.CosineSimilarity(text1, text2);
-        Console.WriteLine($"  Cosine Similarity:        {cosineSim:P2}");
-
-        var levenshtein = TextSimilarity.LevenshteinDistance(text1, text2);
-        Console.WriteLine($"  Levenshtein Distance:     {levenshtein:N0} edits");
-
-        var normalizedLev = TextSimilarity.NormalizedLevenshtein(text1, text2);
-        Console.WriteLine($"  Normalized Levenshtein:   {normalizedLev:P2}");
-
-        var jaccard = TextSimilarity.JaccardSimilarity(text1, text2);
-        Console.WriteLine($"  Jaccard Similarity:       {jaccard:P2}");
+        // Console.WriteLine($"Comparing: '{doc1}' vs '{doc2}'");
+        // Console.WriteLine(new string('-', 60));
+        //
+        // var cosineSim = TextSimilarity.CosineSimilarity(text1, text2);
+        // Console.WriteLine($"  Cosine Similarity:        {cosineSim:P2}");
+        //
+        // var levenshtein = TextSimilarity.LevenshteinDistance(text1, text2);
+        // Console.WriteLine($"  Levenshtein Distance:     {levenshtein:N0} edits");
+        //
+        // var normalizedLev = TextSimilarity.NormalizedLevenshtein(text1, text2);
+        // Console.WriteLine($"  Normalized Levenshtein:   {normalizedLev:P2}");
+        //
+        // var jaccard = TextSimilarity.JaccardSimilarity(text1, text2);
+        // Console.WriteLine($"  Jaccard Similarity:       {jaccard:P2}");
 
         var embeddingSim = TextSimilarity.EmbeddingSimilarity(text1, text2, documents.Values.ToList());
         Console.WriteLine($"  Embedding Similarity:     {embeddingSim:P2}");
@@ -246,7 +246,7 @@ public static class TextSimilarity
             var documentsContainingWord = corpus.Count(doc => 
                 Regex.IsMatch(doc.ToLowerInvariant(), $@"\b{Regex.Escape(word)}\b"));
             
-            var idf = Math.Log((double)corpus.Count / (1 + documentsContainingWord));
+            var idf = Math.Log(1 + (double)corpus.Count / (1 + documentsContainingWord));
             
             // TF-IDF
             tfidf[word] = tf * idf;
@@ -257,8 +257,8 @@ public static class TextSimilarity
 
     private static Dictionary<string, int> GetWords(string text)
     {
-        var words = Regex.Split(text.ToLowerInvariant(), @"\W+")
-            .Where(w => !string.IsNullOrWhiteSpace(w));
+        var words = Regex.Split(text.ToLowerInvariant(), @"\W+")    
+            .Where(w => !string.IsNullOrWhiteSpace(w) && !IsStopWord(w));
 
         var wordCounts = new Dictionary<string, int>();
         foreach (var word in words)
@@ -267,5 +267,32 @@ public static class TextSimilarity
         }
 
         return wordCounts;
+    }
+    
+    private static bool IsStopWord(string word)
+    {
+        // Common English stopwords
+        var stopWords = new HashSet<string>
+        {
+            "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", 
+            "aren't", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", 
+            "but", "by", "can't", "cannot", "could", "couldn't", "did", "didn't", "do", "does", "doesn't", 
+            "doing", "don't", "down", "during", "each", "few", "for", "from", "further", "had", "hadn't", 
+            "has", "hasn't", "have", "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here", 
+            "here's", "hers", "herself", "him", "himself", "his", "how", "how's", "i", "i'd", "i'll", 
+            "i'm", "i've", "if", "in", "into", "is", "isn't", "it", "it's", "its", "itself", "let's", 
+            "me", "more", "most", "mustn't", "my", "myself", "no", "nor", "not", "of", "off", "on", 
+            "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", 
+            "same", "shan't", "she", "she'd", "she'll", "she's", "should", "shouldn't", "so", "some", 
+            "such", "than", "that", "that's", "the", "their", "theirs", "them", "themselves", "then", 
+            "there", "there's", "these", "they", "they'd", "they'll", "they're", "they've", "this", 
+            "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasn't", "we", 
+            "we'd", "we'll", "we're", "we've", "were", "weren't", "what", "what's", "when", "when's", 
+            "where", "where's", "which", "while", "who", "who's", "whom", "why", "why's", "with", 
+            "won't", "would", "wouldn't", "you", "you'd", "you'll", "you're", "you've", "your", 
+            "yours", "yourself", "yourselves"
+        };
+        
+        return stopWords.Contains(word);
     }
 }
