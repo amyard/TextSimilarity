@@ -33,6 +33,11 @@ foreach (var pdfFile in pdfFiles)
 }
 Console.WriteLine();
 
+// Pre-calculate TF-IDF embeddings for all documents
+Console.WriteLine("Calculating TF-IDF embeddings...");
+var documentEmbeddings = TextSimilarity.CalculateDocumentEmbeddings(documents.Values.ToList());
+Console.WriteLine($"Created embeddings for {documentEmbeddings.Count} documents\n");
+
 // Compare each document with every other document
 Console.WriteLine("=== Document Similarity Comparison ===\n");
 var fileNames = documents.Keys.ToArray();
@@ -43,25 +48,14 @@ for (int i = 0; i < fileNames.Length; i++)
     {
         var doc1 = fileNames[i];
         var doc2 = fileNames[j];
-        var text1 = documents[doc1];
-        var text2 = documents[doc2];
 
-        // Console.WriteLine($"Comparing: '{doc1}' vs '{doc2}'");
-        // Console.WriteLine(new string('-', 60));
-        //
-        // var cosineSim = TextSimilarity.CosineSimilarity(text1, text2);
-        // Console.WriteLine($"  Cosine Similarity:        {cosineSim:P2}");
-        //
-        // var levenshtein = TextSimilarity.LevenshteinDistance(text1, text2);
-        // Console.WriteLine($"  Levenshtein Distance:     {levenshtein:N0} edits");
-        //
-        // var normalizedLev = TextSimilarity.NormalizedLevenshtein(text1, text2);
-        // Console.WriteLine($"  Normalized Levenshtein:   {normalizedLev:P2}");
-        //
-        // var jaccard = TextSimilarity.JaccardSimilarity(text1, text2);
-        // Console.WriteLine($"  Jaccard Similarity:       {jaccard:P2}");
+        Console.WriteLine($"Comparing: '{doc1}' vs '{doc2}'");
+        Console.WriteLine(new string('-', 60));
 
-        var embeddingSim = TextSimilarity.EmbeddingSimilarity(text1, text2, documents.Values.ToList());
+        // Method 1: Using pre-calculated embeddings (FASTER)
+        var embeddingSim = TextSimilarity.EmbeddingSimilarityFromVectors(
+            documentEmbeddings[i], 
+            documentEmbeddings[j]);
         Console.WriteLine($"  Embedding Similarity:     {embeddingSim:P2}");
 
         Console.WriteLine();
@@ -198,8 +192,22 @@ public static class TextSimilarity
 
     /// <summary>
     /// Calculates similarity using TF-IDF embeddings.
+    /// This method creates document embeddings based on Term Frequency-Inverse Document Frequency (TF-IDF) 
+    /// and computes cosine similarity between them. Unlike simple word frequency comparison, TF-IDF 
+    /// weights words based on their importance across the entire corpus, giving higher scores to 
+    /// unique/rare words and lower scores to common words.
     /// Returns a value between 0 (completely different) and 1 (identical).
     /// </summary>
+    /// <param name="text1">The first document text to compare.</param>
+    /// <param name="text2">The second document text to compare.</param>
+    /// <param name="corpus">
+    /// The complete collection of all documents being analyzed. This is required for calculating 
+    /// IDF (Inverse Document Frequency), which measures how unique or rare each word is across 
+    /// all documents. Without the corpus, the algorithm cannot determine which words are important 
+    /// distinguishing features versus common words that appear everywhere.
+    /// Example: If comparing 3 PDFs, corpus should contain the text from all 3 documents.
+    /// </param>
+    /// <returns>A similarity score between 0.0 and 1.0, where higher values indicate greater similarity.</returns>
     public static double EmbeddingSimilarity(string text1, string text2, List<string> corpus)
     {
         var words1 = GetWords(text1);
@@ -210,6 +218,42 @@ public static class TextSimilarity
         var tfidf2 = CalculateTfIdf(words2, corpus);
         
         // Calculate cosine similarity between TF-IDF vectors
+        return EmbeddingSimilarityFromVectors(tfidf1, tfidf2);
+    }
+
+    /// <summary>
+    /// Pre-calculates TF-IDF embeddings for all documents in the corpus.
+    /// This is more efficient than recalculating embeddings for each comparison.
+    /// Use this method when you need to compare multiple documents against each other.
+    /// </summary>
+    /// <param name="corpus">List of all document texts to create embeddings for.</param>
+    /// <returns>List of TF-IDF embedding dictionaries, one per document.</returns>
+    public static List<Dictionary<string, double>> CalculateDocumentEmbeddings(List<string> corpus)
+    {
+        var embeddings = new List<Dictionary<string, double>>();
+        
+        foreach (var document in corpus)
+        {
+            var words = GetWords(document);
+            var tfidf = CalculateTfIdf(words, corpus);
+            embeddings.Add(tfidf);
+        }
+        
+        return embeddings;
+    }
+
+    /// <summary>
+    /// Calculates cosine similarity between two pre-calculated TF-IDF embedding vectors.
+    /// This method is more efficient than EmbeddingSimilarity when comparing the same documents multiple times,
+    /// as the embeddings only need to be calculated once.
+    /// </summary>
+    /// <param name="tfidf1">Pre-calculated TF-IDF vector for the first document.</param>
+    /// <param name="tfidf2">Pre-calculated TF-IDF vector for the second document.</param>
+    /// <returns>A similarity score between 0.0 and 1.0, where higher values indicate greater similarity.</returns>
+    public static double EmbeddingSimilarityFromVectors(
+        Dictionary<string, double> tfidf1, 
+        Dictionary<string, double> tfidf2)
+    {
         var allTerms = tfidf1.Keys.Union(tfidf2.Keys).ToList();
         
         double dotProduct = 0;
